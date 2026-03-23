@@ -13,14 +13,17 @@ router.post('/search-questions', async (req, res) => {
     const results = await searchQuestions({ interviewType: interview_type, company, role, difficulty });
 
     const combined = results
-      .slice(0, 6)
-      .map((r) => `Source: ${r.title}\nURL: ${r.source}\n\n${r.content}`)
+      .slice(0, 10)
+      .map((r) => `Platform: ${r.platform}\nSource: ${r.title}\nURL: ${r.source}\n\n${r.content}`)
       .join('\n\n---\n\n')
-      .slice(0, 5000);
+      .slice(0, 8000);
+
+    const platforms = [...new Set(results.map((r) => r.platform))];
 
     return res.json({
       questions: combined,
       total_sources: results.length,
+      platforms,
       interview_type,
     });
   } catch (err) {

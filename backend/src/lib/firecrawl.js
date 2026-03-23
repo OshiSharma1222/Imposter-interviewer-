@@ -6,16 +6,43 @@ async function searchQuestions({ interviewType, company, role, difficulty = 'har
   const apiKey = process.env.FIRECRAWL_API_KEY;
 
   const queries = [
+    // Glassdoor — real interview reports
     `${difficulty} ${company} ${role} interview questions site:glassdoor.com`,
-    `unexpected ${company} ${role} interview questions reddit`,
-    `tricky ${role} interview questions ${company} blind teamblind`,
+
+    // Reddit — honest brutally-detailed threads
+    `${company} ${role} interview questions experience site:reddit.com`,
+
+    // Blind / TeamBlind — insider candid posts
+    `${company} ${role} interview questions site:teamblind.com`,
+
+    // X / Twitter — real-time interview experiences
+    `${company} ${role} interview questions experience site:x.com OR site:twitter.com`,
+
+    // Quora — detailed Q&A answer threads
+    `hardest ${company} ${role} interview questions site:quora.com`,
+
+    // Levels.fyi — compensation + interview intel
+    `${company} ${role} interview questions site:levels.fyi`,
+
+    // Hacker News — technical / startup interview threads
+    `${company} ${role} interview questions site:news.ycombinator.com`,
+
+    // LinkedIn — professional posts sharing interview experiences
+    `${company} ${role} interview questions experience site:linkedin.com`,
+
+    // Indeed — candidate interview reviews
+    `${company} ${role} interview questions site:indeed.com`,
+
+    // CareerCup — curated interview question database
+    `${company} ${role} interview questions site:careercup.com`,
   ];
 
   const results = [];
 
-  for (const query of queries) {
-    try {
-      const response = await axios.post(
+  // Run all queries in parallel for speed
+  const settled = await Promise.allSettled(
+    queries.map((query) =>
+      axios.post(
         `${FIRECRAWL_BASE}/search`,
         {
           query,
@@ -29,50 +56,91 @@ async function searchQuestions({ interviewType, company, role, difficulty = 'har
           },
           timeout: 20000,
         }
-      );
+      )
+    )
+  );
 
-      const data = response.data?.data || response.data?.results || [];
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i];
+    if (result.status === 'fulfilled') {
+      const data = result.value.data?.data || result.value.data?.results || [];
       for (const item of data) {
         results.push({
           source: item.url || '',
           title: item.title || '',
+          platform: detectPlatform(item.url || ''),
           content: (item.markdown || item.description || '').slice(0, 2000),
         });
       }
-    } catch (err) {
-      console.error(`Firecrawl query failed for: ${query}`, err.message);
+    } else {
+      console.error(`Firecrawl query failed: ${queries[i]}`, result.reason?.message);
     }
   }
 
-  return results;
+  // Deduplicate by URL
+  const seen = new Set();
+  return results.filter((r) => {
+    if (seen.has(r.source)) return false;
+    seen.add(r.source);
+    return true;
+  });
+}
+
+function detectPlatform(url) {
+  if (url.includes('glassdoor')) return 'Glassdoor';
+  if (url.includes('reddit')) return 'Reddit';
+  if (url.includes('teamblind') || url.includes('blind')) return 'Blind';
+  if (url.includes('x.com') || url.includes('twitter')) return 'X (Twitter)';
+  if (url.includes('quora')) return 'Quora';
+  if (url.includes('levels.fyi')) return 'Levels.fyi';
+  if (url.includes('ycombinator')) return 'Hacker News';
+  if (url.includes('linkedin')) return 'LinkedIn';
+  if (url.includes('indeed')) return 'Indeed';
+  if (url.includes('careercup')) return 'CareerCup';
+  return 'Web';
 }
 
 async function searchFollowup({ topic }) {
   const apiKey = process.env.FIRECRAWL_API_KEY;
 
-  try {
-    const response = await axios.post(
-      `${FIRECRAWL_BASE}/search`,
-      {
-        query: `best answer to "${topic}" interview question`,
-        limit: 3,
-        scrapeOptions: { formats: ['markdown'] },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 20000,
-      }
-    );
+  const queries = [
+    `best answer to "${topic}" interview question site:reddit.com`,
+    `how to answer "${topic}" interview question site:quora.com`,
+    `"${topic}" interview answer example site:glassdoor.com`,
+  ];
 
-    const data = response.data?.data || response.data?.results || [];
-    return data.map((r) => (r.markdown || r.description || '').slice(0, 1000)).join('\n\n');
-  } catch (err) {
-    console.error('Firecrawl followup failed:', err.message);
-    return '';
+  const settled = await Promise.allSettled(
+    queries.map((query) =>
+      axios.post(
+        `${FIRECRAWL_BASE}/search`,
+        {
+          query,
+          limit: 2,
+          scrapeOptions: { formats: ['markdown'] },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 20000,
+        }
+      )
+    )
+  );
+
+  const parts = [];
+  for (const result of settled) {
+    if (result.status === 'fulfilled') {
+      const data = result.value.data?.data || result.value.data?.results || [];
+      for (const r of data) {
+        const text = (r.markdown || r.description || '').slice(0, 800);
+        if (text) parts.push(text);
+      }
+    }
   }
+
+  return parts.join('\n\n').slice(0, 4000);
 }
 
 module.exports = { searchQuestions, searchFollowup };
