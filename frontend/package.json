@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@elevenlabs/convai-widget-embed": "^0.0.6",
+    "@elevenlabs/react": "^0.14.3",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.8",
     "next": "14.2.3",
