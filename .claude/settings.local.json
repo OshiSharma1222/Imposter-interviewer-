@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find 'c:/Users/OSHI SHARMA/Imposter-interviewer/node_modules/@elevenlabs/types' -name *.d.ts)"
+    ]
+  }
+}
+

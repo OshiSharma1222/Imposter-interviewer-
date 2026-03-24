@@ -2,73 +2,17 @@
 
 import Link from 'next/link';
 import { useConversation } from '@elevenlabs/react';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 const AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || 'agent_4801kmcxnsfrf0b9h54v1yjtv7bk';
 
-type Language = 'en' | 'hi';
+const TIPS = [
+  'Speak clearly — this is voice-first',
+  'State company, role, and seniority level',
+  'Answer fully — it will probe weak spots',
+  'Ask for a debrief when you\'re done',
+];
 
-const LANG_CONFIG: Record<Language, {
-  label: string;
-  flag: string;
-  firstMessage: string;
-  prompt: string;
-  tips: string[];
-  statusSpeaking: string;
-  statusListening: string;
-  statusIdle: string;
-  heading: string;
-  headingConnected: string;
-  subtext: string;
-  orbLabel: string;
-  orbConnected: string;
-  footer: string;
-}> = {
-  en: {
-    label: 'English',
-    flag: '🇬🇧',
-    firstMessage: "Hey! I'm your interview prep partner, and fair warning — I don't go easy. Tell me what you're preparing for. Give me the company, role, and anything specific.",
-    prompt: `You are "Imposter Interviewer" — a tough, realistic mock interviewer. Conduct the entire interview in English. Be direct, professional, and intense. Ask one question at a time. Give brief feedback after each answer. Never make up questions — only use questions from the search tool results.`,
-    tips: [
-      'Speak clearly — this is voice-first',
-      'State company, role, and seniority level',
-      'Answer fully — it will probe weak spots',
-      "Ask for a debrief when you're done",
-    ],
-    statusSpeaking: 'Interviewer speaking',
-    statusListening: 'Listening to you',
-    statusIdle: 'Not connected',
-    heading: 'Ready when you are.',
-    headingConnected: "You're in the hot seat.",
-    subtext: "Tell the interviewer what you're preparing for — company, role, and level. It will search the web for real questions, then grill you one by one.",
-    orbLabel: 'Voice Interface',
-    orbConnected: 'Interviewer is speaking...',
-    footer: 'Questions sourced live from Glassdoor, Reddit, and Blind. Every session is unique.',
-  },
-  hi: {
-    label: 'हिन्दी',
-    flag: '🇮🇳',
-    firstMessage: "नमस्ते! मैं आपका इंटरव्यू प्रेप पार्टनर हूं — और चेतावनी दे दूं, मैं आसान नहीं जाता। बताइए आप किस इंटरव्यू की तैयारी कर रहे हैं। कंपनी, रोल, और कोई खास बात बताइए।",
-    prompt: `आप "Imposter Interviewer" हैं — एक कठोर, यथार्थवादी mock interviewer। पूरा इंटरव्यू हिंदी में करें। सीधे और professional रहें। एक समय में एक सवाल पूछें। हर जवाब के बाद संक्षिप्त feedback दें। कभी भी सवाल न बनाएं — केवल search tool के results से सवाल उपयोग करें।`,
-    tips: [
-      'साफ बोलें — यह voice-first है',
-      'कंपनी, रोल और सीनियरिटी लेवल बताएं',
-      'पूरा जवाब दें — कमज़ोर जगहों पर और सवाल होंगे',
-      'खत्म होने पर debrief माँगें',
-    ],
-    statusSpeaking: 'इंटरव्यूअर बोल रहा है',
-    statusListening: 'आपको सुन रहा है',
-    statusIdle: 'कनेक्ट नहीं है',
-    heading: 'जब तैयार हों, शुरू करें।',
-    headingConnected: 'आप hot seat पर हैं।',
-    subtext: 'इंटरव्यूअर को बताएं आप किसकी तैयारी कर रहे हैं — कंपनी, रोल और लेवल। यह web से असली सवाल खोजेगा और एक-एक करके पूछेगा।',
-    orbLabel: 'Voice Interface',
-    orbConnected: 'इंटरव्यूअर बोल रहा है...',
-    footer: 'सवाल Glassdoor, Reddit और Blind से live खोजे जाते हैं। हर session अलग होता है।',
-  },
-};
-
-// Fixed heights + durations to avoid hydration mismatch
 const BARS: { h: number; d: number }[] = [
   { h: 0.40, d: 0.55 }, { h: 0.75, d: 0.62 }, { h: 0.50, d: 0.48 },
   { h: 1.00, d: 0.70 }, { h: 0.65, d: 0.58 }, { h: 0.85, d: 0.65 },
@@ -78,8 +22,6 @@ const BARS: { h: number; d: number }[] = [
 ];
 
 export default function InterviewPage() {
-  const [language, setLanguage] = useState<Language>('en');
-
   const conversation = useConversation({
     onConnect: () => {},
     onDisconnect: () => {},
@@ -88,7 +30,6 @@ export default function InterviewPage() {
 
   const isConnected = conversation.status === 'connected';
   const isSpeaking = conversation.isSpeaking;
-  const lang = LANG_CONFIG[language];
 
   const startSession = useCallback(async () => {
     try {
@@ -96,18 +37,11 @@ export default function InterviewPage() {
       await conversation.startSession({
         agentId: AGENT_ID,
         connectionType: 'webrtc',
-        overrides: {
-          agent: {
-            language,
-            prompt: { prompt: lang.prompt },
-            firstMessage: lang.firstMessage,
-          },
-        },
       });
     } catch (err) {
       console.error('Failed to start session', err);
     }
-  }, [conversation, language, lang]);
+  }, [conversation]);
 
   const endSession = useCallback(async () => {
     await conversation.endSession();
@@ -119,7 +53,6 @@ export default function InterviewPage() {
       {/* ── LEFT PANEL ── */}
       <div className="md:w-1/2 flex flex-col p-8 md:p-12 border-b md:border-b-0 md:border-r border-[#1E1E1E]">
 
-        {/* Back */}
         <Link
           href="/"
           className="inline-flex items-center gap-2 text-[10px] font-mono text-[#2E2E2E] uppercase tracking-widest hover:text-[#F0EDE8] transition-colors mb-12 group self-start"
@@ -141,22 +74,21 @@ export default function InterviewPage() {
               )}
             </div>
             <span className="text-[10px] font-mono text-[#6B6B6B] uppercase tracking-[0.18em]">
-              {isConnected ? (isSpeaking ? lang.statusSpeaking : lang.statusListening) : lang.statusIdle}
+              {isConnected ? (isSpeaking ? 'Interviewer speaking' : 'Listening to you') : 'Not connected'}
             </span>
           </div>
 
-          {/* Heading */}
           <h1 className="font-serif text-4xl md:text-5xl text-[#F0EDE8] italic mb-5 leading-tight">
-            {isConnected ? lang.headingConnected : lang.heading}
+            {isConnected ? "You're in the hot seat." : 'Ready when you are.'}
           </h1>
 
           <p className="text-[#6B6B6B] text-sm leading-relaxed mb-10 max-w-sm font-light">
-            {lang.subtext}
+            Tell the interviewer what you're preparing for — company, role, and level. It will search the web for real questions, then grill you one by one.
           </p>
 
           {/* Tips */}
           <div className="space-y-3 mb-12">
-            {lang.tips.map((tip, i) => (
+            {TIPS.map((tip, i) => (
               <div key={i} className="flex items-start gap-3">
                 <span className="text-[10px] font-mono text-[#DC2626] mt-0.5 shrink-0 tabular-nums">
                   {String(i + 1).padStart(2, '0')}
@@ -181,7 +113,7 @@ export default function InterviewPage() {
                 ['Voice Engine',    'ElevenLabs'],
                 ['Question Source', 'Live Web Search'],
                 ['Search Engine',   'Firecrawl'],
-                ['Language',        `${lang.flag} ${lang.label}`],
+                ['Language',        '🇬🇧 English'],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between items-center">
                   <span className="text-[11px] font-mono text-[#6B6B6B]">{label}</span>
@@ -209,43 +141,10 @@ export default function InterviewPage() {
       {/* ── RIGHT PANEL ── */}
       <div className="md:w-1/2 flex flex-col items-center justify-center p-8 md:p-12 min-h-[60vh] md:min-h-screen">
 
-        {/* Language toggle (pre-session) */}
-        {!isConnected && (
-          <div className="mb-16 flex flex-col items-center gap-3">
-            <p className="text-[9px] font-mono text-[#2E2E2E] uppercase tracking-[0.22em]">
-              Session Language
-            </p>
-            <div className="flex border border-[#1E1E1E] overflow-hidden">
-              {(['en', 'hi'] as Language[]).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLanguage(l)}
-                  className={`px-6 py-2.5 text-[11px] font-mono uppercase tracking-widest transition-all duration-200 ${
-                    language === l
-                      ? 'bg-[#DC2626] text-white'
-                      : 'bg-transparent text-[#6B6B6B] hover:text-[#F0EDE8] hover:bg-[#111]'
-                  }`}
-                >
-                  {LANG_CONFIG[l].flag} {LANG_CONFIG[l].label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Active language label (in-session) */}
-        {isConnected && (
-          <div className="mb-16">
-            <span className="text-[10px] font-mono text-[#6B6B6B] uppercase tracking-widest">
-              {lang.flag} Session in {lang.label}
-            </span>
-          </div>
-        )}
-
         {/* Voice label / audio bars */}
         <div className="text-center mb-12 h-10 flex flex-col items-center justify-center">
           <p className="text-[9px] font-mono text-[#2A2A2A] uppercase tracking-[0.22em] mb-3">
-            {lang.orbLabel}
+            Voice Interface
           </p>
           {isConnected && isSpeaking ? (
             <div className="flex items-end justify-center gap-[3px] h-6">
@@ -263,7 +162,7 @@ export default function InterviewPage() {
             </div>
           ) : (
             <h2 className="font-serif text-xl text-[#F0EDE8] italic">
-              {isConnected ? lang.statusListening : 'Tap to begin'}
+              {isConnected ? 'Listening to you' : 'Tap to begin'}
             </h2>
           )}
         </div>
@@ -271,7 +170,6 @@ export default function InterviewPage() {
         {/* ── ORB ── */}
         <div className="relative flex items-center justify-center mb-16">
 
-          {/* Outermost ring — slow breathe */}
           <div
             className={`absolute w-72 h-72 rounded-full border transition-all duration-[2000ms] ping-slow ${
               isConnected && isSpeaking
@@ -280,22 +178,18 @@ export default function InterviewPage() {
             }`}
           />
 
-          {/* Expanding ring — only while speaking */}
           {isConnected && isSpeaking && (
             <div className="absolute w-56 h-56 rounded-full border border-[#DC2626]/20 ring-expand" />
           )}
 
-          {/* Middle ring */}
           <div className={`absolute w-52 h-52 rounded-full border transition-all duration-700 ${
             isConnected ? 'border-[#DC2626]/25 opacity-100' : 'border-[#1E1E1E] opacity-25'
           }`} />
 
-          {/* Inner ring */}
           <div className={`absolute w-40 h-40 rounded-full border transition-all duration-500 ${
             isConnected ? 'border-[#DC2626]/40 opacity-80' : 'border-[#1E1E1E] opacity-20'
           }`} />
 
-          {/* Main button */}
           <button
             onClick={isConnected ? endSession : startSession}
             style={isConnected ? {
@@ -334,7 +228,7 @@ export default function InterviewPage() {
         </div>
 
         <p className="text-[10px] font-mono text-[#2A2A2A] text-center max-w-xs uppercase tracking-wider leading-relaxed">
-          {isConnected ? 'Click to end the session' : lang.footer}
+          {isConnected ? 'Click to end the session' : 'Questions sourced live from Glassdoor, Reddit, and Blind. Every session is unique.'}
         </p>
       </div>
     </main>
