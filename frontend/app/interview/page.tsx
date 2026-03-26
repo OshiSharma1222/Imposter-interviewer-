@@ -33,23 +33,23 @@ function injectHideStyle(shadowRoot: ShadowRoot) {
 
 const WALKTHROUGH_STEPS = [
   {
-    title: 'Click the Mic',
-    desc: 'Tap the microphone orb to start your voice interview session. Make sure your mic is enabled.',
+    title: 'No more guessing.',
+    desc: 'We pull real interview questions from Glassdoor, Reddit, Blind, and 7 other platforms — the exact ones that made real candidates sweat.',
+    target: 'left',
+  },
+  {
+    title: 'Speak, don\'t type.',
+    desc: 'This is a voice-first experience. Tap the mic, tell the AI your target company and role, and it starts searching the web for real questions — live.',
     target: 'orb',
   },
   {
-    title: 'State Your Target',
-    desc: 'Tell the AI interviewer the company, role, and seniority level you\'re preparing for. Be specific.',
+    title: 'It doesn\'t go easy.',
+    desc: 'One question at a time. It listens to your answer, finds weak spots, and pushes back — just like a real interviewer would.',
     target: 'left',
   },
   {
-    title: 'Get Grilled',
-    desc: 'The agent searches 10+ platforms for real questions, then asks them one by one. Answer fully — it probes weak spots.',
-    target: 'left',
-  },
-  {
-    title: 'End Anytime',
-    desc: 'Click the red orb to stop. Ask for a debrief before ending to get feedback on your performance.',
+    title: 'You\'re ready.',
+    desc: 'Tap the mic to begin. The harder you get grilled here, the easier it gets in the real room.',
     target: 'orb',
   },
 ];
