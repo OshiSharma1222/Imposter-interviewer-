@@ -2,8 +2,21 @@ const express = require('express');
 const router = express.Router();
 const { searchQuestions, searchFollowup } = require('../lib/firecrawl');
 
+// ElevenLabs may nest params under different keys — extract them robustly
+function extractParams(req) {
+  const body = req.body || {};
+  // Try top-level, then common nested wrappers
+  const params = body.parameters || body.data || body.args || body;
+  // Also merge query string as fallback
+  return { ...req.query, ...params };
+}
+
 router.post('/search-questions', async (req, res) => {
-  const { interview_type = '', company = '', role = '', difficulty = 'hardest' } = req.body;
+  console.log('[search-questions] raw body:', JSON.stringify(req.body));
+  console.log('[search-questions] content-type:', req.headers['content-type']);
+
+  const params = extractParams(req);
+  const { interview_type = '', company = '', role = '', difficulty = 'hardest' } = params;
 
   if (!company && !role && !interview_type) {
     return res.status(400).json({ error: 'Provide at least interview_type, company, or role.' });
@@ -33,7 +46,11 @@ router.post('/search-questions', async (req, res) => {
 });
 
 router.post('/search-followup', async (req, res) => {
-  const { topic = '', user_answer_summary = '' } = req.body;
+  console.log('[search-followup] raw body:', JSON.stringify(req.body));
+  console.log('[search-followup] content-type:', req.headers['content-type']);
+
+  const params = extractParams(req);
+  const { topic = '', user_answer_summary = '' } = params;
 
   if (!topic) return res.status(400).json({ error: 'topic is required.' });
 

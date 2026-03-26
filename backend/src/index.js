@@ -10,6 +10,15 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json({ type: '*/*' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Fallback: if body is a raw string that looks like JSON, parse it
+app.use((req, _res, next) => {
+  if (typeof req.body === 'string') {
+    try { req.body = JSON.parse(req.body); } catch (_) { /* keep as-is */ }
+  }
+  next();
+});
 
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 app.use(limiter);
