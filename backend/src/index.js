@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ type: '*/*' }));
 
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 app.use(limiter);
