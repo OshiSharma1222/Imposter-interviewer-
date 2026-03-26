@@ -18,6 +18,17 @@ app.use('/', searchRoutes);
 
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+// Debug: echo back exactly what ElevenLabs sends
+app.all('/debug', (req, res) => {
+  res.json({
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    query: req.query,
+    rawBody: typeof req.body === 'string' ? req.body : null,
+  });
+});
+
 if (!process.env.FIRECRAWL_API_KEY || process.env.FIRECRAWL_API_KEY === 'fc-your-key-here') {
   console.warn('[warn] FIRECRAWL_API_KEY is not set — search endpoints will return empty results');
 }
