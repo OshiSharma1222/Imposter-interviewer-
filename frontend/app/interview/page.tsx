@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useConversation } from '@elevenlabs/react';
-import { useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
-const AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || 'agent_4801kmcxnsfrf0b9h54v1yjtv7bk';
+const AGENT_ID = 'agent_2601kmmr9sahe9vvrya2jngw2j32';
 
 const TIPS = [
   'Speak clearly — this is voice-first',
@@ -21,45 +20,216 @@ const BARS: { h: number; d: number }[] = [
   { h: 0.60, d: 0.63 },
 ];
 
+const HIDE_CSS = '*, *::before, *::after { opacity: 0 !important; pointer-events: none !important; }';
+
+function injectHideStyle(shadowRoot: ShadowRoot) {
+  if (!shadowRoot.getElementById('__hide')) {
+    const s = document.createElement('style');
+    s.id = '__hide';
+    s.textContent = HIDE_CSS;
+    shadowRoot.appendChild(s);
+  }
+}
+
+const WALKTHROUGH_STEPS = [
+  {
+    title: 'Click the Mic',
+    desc: 'Tap the microphone orb to start your voice interview session. Make sure your mic is enabled.',
+    target: 'orb',
+  },
+  {
+    title: 'State Your Target',
+    desc: 'Tell the AI interviewer the company, role, and seniority level you\'re preparing for. Be specific.',
+    target: 'left',
+  },
+  {
+    title: 'Get Grilled',
+    desc: 'The agent searches 10+ platforms for real questions, then asks them one by one. Answer fully — it probes weak spots.',
+    target: 'left',
+  },
+  {
+    title: 'End Anytime',
+    desc: 'Click the red orb to stop. Ask for a debrief before ending to get feedback on your performance.',
+    target: 'orb',
+  },
+];
+
+function Walkthrough({ onDone }: { onDone: () => void }) {
+  const [step, setStep] = useState(0);
+  const current = WALKTHROUGH_STEPS[step];
+  const isLast = step === WALKTHROUGH_STEPS.length - 1;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onDone} />
+
+      {/* Card */}
+      <div className="relative bg-[#111] border border-[#2A2A2A] max-w-sm w-full mx-6 p-8 fade-up">
+        {/* Step counter */}
+        <div className="flex items-center gap-2 mb-6">
+          {WALKTHROUGH_STEPS.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                i <= step ? 'bg-[#DC2626]' : 'bg-[#2A2A2A]'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Step number */}
+        <span className="text-[10px] font-mono text-[#DC2626] uppercase tracking-[0.2em] mb-4 block">
+          Step {String(step + 1).padStart(2, '0')} of {String(WALKTHROUGH_STEPS.length).padStart(2, '0')}
+        </span>
+
+        {/* Content */}
+        <h3 className="font-serif text-2xl text-[#F0EDE8] italic mb-3">
+          {current.title}
+        </h3>
+        <p className="text-[#6B6B6B] text-sm leading-relaxed mb-8">
+          {current.desc}
+        </p>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onDone}
+            className="text-[10px] font-mono text-[#6B6B6B] uppercase tracking-widest hover:text-[#F0EDE8] transition-colors"
+          >
+            Skip
+          </button>
+          <div className="flex items-center gap-3">
+            {step > 0 && (
+              <button
+                onClick={() => setStep(step - 1)}
+                className="text-[11px] font-mono text-[#6B6B6B] uppercase tracking-widest hover:text-[#F0EDE8] transition-colors px-4 py-2"
+              >
+                Back
+              </button>
+            )}
+            <button
+              onClick={() => isLast ? onDone() : setStep(step + 1)}
+              className="text-[11px] font-mono uppercase tracking-widest bg-[#DC2626] text-white px-6 py-2.5 hover:bg-[#B91C1C] transition-colors inline-flex items-center gap-2 group"
+            >
+              {isLast ? 'Start Interview' : 'Next'}
+              <span className="group-hover:translate-x-0.5 transition-transform inline-block">
+                {isLast ? '' : '\u2192'}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InterviewPage() {
-  const conversation = useConversation({
-    onConnect: () => {},
-    onDisconnect: () => {},
-    onError: (err) => console.error('[elevenlabs]', err),
-  });
+  const [isConnected, setIsConnected] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
 
-  const isConnected = conversation.status === 'connected';
-  const isSpeaking = conversation.isSpeaking;
+  useEffect(() => {
+    // Show walkthrough only on first visit
+    const seen = localStorage.getItem('walkthrough-seen');
+    if (!seen) setShowWalkthrough(true);
+  }, []);
 
-  const startSession = useCallback(async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      await conversation.startSession({
-        agentId: AGENT_ID,
-        connectionType: 'webrtc',
+  const dismissWalkthrough = useCallback(() => {
+    setShowWalkthrough(false);
+    localStorage.setItem('walkthrough-seen', '1');
+  }, []);
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://elevenlabs.io/convai-widget/index.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    const poll = setInterval(() => {
+      const widget = document.querySelector('elevenlabs-convai');
+      if (!widget?.shadowRoot) return;
+      injectHideStyle(widget.shadowRoot);
+      clearInterval(poll);
+
+      const observer = new MutationObserver(() => {
+        if (widget.shadowRoot) injectHideStyle(widget.shadowRoot);
       });
-    } catch (err) {
-      console.error('Failed to start session', err);
-    }
-  }, [conversation]);
+      observer.observe(widget.shadowRoot, { childList: true });
+    }, 200);
 
-  const endSession = useCallback(async () => {
-    await conversation.endSession();
-  }, [conversation]);
+    return () => {
+      clearInterval(poll);
+      if (document.body.contains(script)) document.body.removeChild(script);
+    };
+  }, []);
+
+  const handleMicClick = useCallback(() => {
+    const widget = document.querySelector('elevenlabs-convai');
+    if (!widget?.shadowRoot) return;
+
+    const buttons = Array.from(widget.shadowRoot.querySelectorAll('button'));
+
+    if (isConnected) {
+      const endBtn = buttons.find(b =>
+        (b.textContent || '').toLowerCase().includes('end')
+      );
+      if (endBtn) {
+        endBtn.click();
+        setIsConnected(false);
+      }
+    } else {
+      const startBtn = buttons.find(b => {
+        const t = (b.textContent || '').toLowerCase();
+        return t.includes('start') || t.includes('call');
+      });
+      if (startBtn) {
+        startBtn.click();
+        setIsConnected(true);
+
+        setTimeout(() => {
+          if (!widget.shadowRoot) return;
+          const btns = Array.from(widget.shadowRoot.querySelectorAll('button'));
+          const agreeBtn = btns.find(b =>
+            (b.textContent || '').toLowerCase().includes('agree')
+          );
+          if (agreeBtn) agreeBtn.click();
+        }, 400);
+      }
+    }
+  }, [isConnected]);
 
   return (
     <main className="min-h-screen bg-[#080808] flex flex-col md:flex-row">
 
+      {/* Walkthrough overlay */}
+      {showWalkthrough && <Walkthrough onDone={dismissWalkthrough} />}
+
+      {/* ElevenLabs widget — rendered but fully invisible */}
+      <div
+        aria-hidden="true"
+        dangerouslySetInnerHTML={{
+          __html: `<elevenlabs-convai agent-id="${AGENT_ID}"></elevenlabs-convai>`,
+        }}
+      />
+
       {/* ── LEFT PANEL ── */}
       <div className="md:w-1/2 flex flex-col p-8 md:p-12 border-b md:border-b-0 md:border-r border-[#1E1E1E]">
 
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-[10px] font-mono text-[#2E2E2E] uppercase tracking-widest hover:text-[#F0EDE8] transition-colors mb-12 group self-start"
-        >
-          <span className="group-hover:-translate-x-0.5 transition-transform inline-block">←</span>
-          Back
-        </Link>
+        <div className="flex items-center justify-between mb-12">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-[10px] font-mono text-[#2E2E2E] uppercase tracking-widest hover:text-[#F0EDE8] transition-colors group"
+          >
+            <span className="group-hover:-translate-x-0.5 transition-transform inline-block">&larr;</span>
+            Back
+          </Link>
+          <button
+            onClick={() => setShowWalkthrough(true)}
+            className="text-[10px] font-mono text-[#2E2E2E] uppercase tracking-widest hover:text-[#F0EDE8] transition-colors"
+          >
+            ? Guide
+          </button>
+        </div>
 
         <div className="flex-1 flex flex-col justify-center max-w-md">
 
@@ -74,7 +244,7 @@ export default function InterviewPage() {
               )}
             </div>
             <span className="text-[10px] font-mono text-[#6B6B6B] uppercase tracking-[0.18em]">
-              {isConnected ? (isSpeaking ? 'Interviewer speaking' : 'Listening to you') : 'Not connected'}
+              {isConnected ? 'Session Active' : 'Voice Interview Agent'}
             </span>
           </div>
 
@@ -83,7 +253,9 @@ export default function InterviewPage() {
           </h1>
 
           <p className="text-[#6B6B6B] text-sm leading-relaxed mb-10 max-w-sm font-light">
-            Tell the interviewer what you're preparing for — company, role, and level. It will search the web for real questions, then grill you one by one.
+            {isConnected
+              ? 'The interviewer is listening. Answer clearly and completely — it will push back on weak answers.'
+              : "Click the mic to start. Tell the interviewer what you're preparing for — company, role, and level. It will search the web for real questions, then grill you one by one."}
           </p>
 
           {/* Tips */}
@@ -99,12 +271,9 @@ export default function InterviewPage() {
           </div>
 
           {/* Session info card */}
-          <div
-            className={`border p-5 transition-all duration-500 ${
-              isConnected ? 'border-[#DC2626]/20' : 'border-[#1E1E1E]'
-            }`}
-            style={isConnected ? { backgroundColor: 'rgba(220,38,38,0.03)' } : {}}
-          >
+          <div className={`border p-5 transition-all duration-500 ${
+            isConnected ? 'border-[#DC2626]/20' : 'border-[#1E1E1E]'
+          }`} style={isConnected ? { backgroundColor: 'rgba(220,38,38,0.03)' } : {}}>
             <p className="text-[9px] font-mono text-[#6B6B6B] uppercase tracking-[0.22em] mb-5">
               Session Info
             </p>
@@ -113,7 +282,7 @@ export default function InterviewPage() {
                 ['Voice Engine',    'ElevenLabs'],
                 ['Question Source', 'Live Web Search'],
                 ['Search Engine',   'Firecrawl'],
-                ['Language',        '🇬🇧 English'],
+                ['Platforms',       '10+ Sources'],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between items-center">
                   <span className="text-[11px] font-mono text-[#6B6B6B]">{label}</span>
@@ -141,12 +310,12 @@ export default function InterviewPage() {
       {/* ── RIGHT PANEL ── */}
       <div className="md:w-1/2 flex flex-col items-center justify-center p-8 md:p-12 min-h-[60vh] md:min-h-screen">
 
-        {/* Voice label / audio bars */}
+        {/* Voice label */}
         <div className="text-center mb-12 h-10 flex flex-col items-center justify-center">
           <p className="text-[9px] font-mono text-[#2A2A2A] uppercase tracking-[0.22em] mb-3">
             Voice Interface
           </p>
-          {isConnected && isSpeaking ? (
+          {isConnected ? (
             <div className="flex items-end justify-center gap-[3px] h-6">
               {BARS.map(({ h, d }, i) => (
                 <div
@@ -162,7 +331,7 @@ export default function InterviewPage() {
             </div>
           ) : (
             <h2 className="font-serif text-xl text-[#F0EDE8] italic">
-              {isConnected ? 'Listening to you' : 'Tap to begin'}
+              Tap the mic to begin
             </h2>
           )}
         </div>
@@ -170,15 +339,11 @@ export default function InterviewPage() {
         {/* ── ORB ── */}
         <div className="relative flex items-center justify-center mb-16">
 
-          <div
-            className={`absolute w-72 h-72 rounded-full border transition-all duration-[2000ms] ping-slow ${
-              isConnected && isSpeaking
-                ? 'border-[#DC2626]/15 opacity-100'
-                : 'border-[#1E1E1E]/40 opacity-60'
-            }`}
-          />
+          <div className={`absolute w-72 h-72 rounded-full border transition-all duration-[2000ms] ping-slow ${
+            isConnected ? 'border-[#DC2626]/15 opacity-100' : 'border-[#1E1E1E]/40 opacity-60'
+          }`} />
 
-          {isConnected && isSpeaking && (
+          {isConnected && (
             <div className="absolute w-56 h-56 rounded-full border border-[#DC2626]/20 ring-expand" />
           )}
 
@@ -191,13 +356,11 @@ export default function InterviewPage() {
           }`} />
 
           <button
-            onClick={isConnected ? endSession : startSession}
+            onClick={handleMicClick}
             style={isConnected ? {
-              boxShadow: isSpeaking
-                ? '0 0 55px rgba(220,38,38,0.55), 0 0 110px rgba(220,38,38,0.2), 0 0 4px rgba(220,38,38,0.9)'
-                : '0 0 30px rgba(220,38,38,0.3), 0 0 70px rgba(220,38,38,0.12)',
+              boxShadow: '0 0 55px rgba(220,38,38,0.55), 0 0 110px rgba(220,38,38,0.2), 0 0 4px rgba(220,38,38,0.9)',
             } : {}}
-            className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500 group cursor-pointer ${
+            className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500 cursor-pointer group ${
               isConnected
                 ? 'bg-[#DC2626]'
                 : 'bg-[#0D0D0D] border border-[#2A2A2A] hover:border-[#DC2626]/50 hover:bg-[#111]'
@@ -228,7 +391,9 @@ export default function InterviewPage() {
         </div>
 
         <p className="text-[10px] font-mono text-[#2A2A2A] text-center max-w-xs uppercase tracking-wider leading-relaxed">
-          {isConnected ? 'Click to end the session' : 'Questions sourced live from Glassdoor, Reddit, and Blind. Every session is unique.'}
+          {isConnected
+            ? 'Click the orb to end the session'
+            : 'Questions sourced live from Glassdoor, Reddit, and Blind. Every session is unique.'}
         </p>
       </div>
     </main>
