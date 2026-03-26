@@ -79,11 +79,25 @@ async function searchQuestions({ interviewType, company, role, difficulty = 'har
 
   // Deduplicate by URL
   const seen = new Set();
-  return results.filter((r) => {
+  const unique = results.filter((r) => {
     if (seen.has(r.source)) return false;
     seen.add(r.source);
     return true;
   });
+
+  // If too few results and we searched with a company, retry with just role
+  if (unique.length < 5 && company && company !== 'top tech companies') {
+    console.log(`[firecrawl] Only ${unique.length} results for "${company} ${role}" — retrying with role only`);
+    const fallback = await searchQuestions({ interviewType, company: '', role, difficulty });
+    for (const r of fallback) {
+      if (!seen.has(r.source)) {
+        seen.add(r.source);
+        unique.push(r);
+      }
+    }
+  }
+
+  return unique;
 }
 
 function detectPlatform(url) {
