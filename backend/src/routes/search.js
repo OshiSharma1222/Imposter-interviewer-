@@ -18,12 +18,13 @@ router.post('/search-questions', async (req, res) => {
   const params = extractParams(req);
   const { interview_type = '', company = '', role = '', difficulty = 'hardest' } = params;
 
-  if (!company && !role && !interview_type) {
-    return res.status(400).json({ error: 'Provide at least interview_type, company, or role.' });
-  }
+  // If agent sends empty params, fall back to a generic search
+  const searchCompany = company || 'top tech companies';
+  const searchRole = role || 'software engineer';
+  const searchType = interview_type || 'technical';
 
   try {
-    const results = await searchQuestions({ interviewType: interview_type, company, role, difficulty });
+    const results = await searchQuestions({ interviewType: searchType, company: searchCompany, role: searchRole, difficulty });
 
     const combined = results
       .slice(0, 10)
@@ -37,7 +38,7 @@ router.post('/search-questions', async (req, res) => {
       questions: combined,
       total_sources: results.length,
       platforms,
-      interview_type,
+      interview_type: searchType,
     });
   } catch (err) {
     console.error(err);
